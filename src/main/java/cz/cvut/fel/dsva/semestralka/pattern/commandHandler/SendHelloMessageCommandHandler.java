@@ -1,6 +1,5 @@
 package cz.cvut.fel.dsva.semestralka.pattern.commandHandler;
 
-import cz.cvut.fel.dsva.semestralka.base.Message;
 import cz.cvut.fel.dsva.semestralka.Node;
 import cz.cvut.fel.dsva.semestralka.service.ChatServiceImpl;
 import lombok.Getter;
@@ -14,16 +13,16 @@ import java.util.Arrays;
 @Slf4j
 @Getter
 @Setter
-public class SendMessageCommandHandler implements CommandHandler {
-    private static final int maxArguments = 2;
+public class SendHelloMessageCommandHandler implements CommandHandler {
+    private static final int maxArguments = 1;
     private ChatServiceImpl chatService;
 
-    public SendMessageCommandHandler(ChatServiceImpl chatService) {
+    public SendHelloMessageCommandHandler(ChatServiceImpl chatService) {
         this.chatService = chatService;
     }
 
     @Override
-    public void handle(String[] args, Node node)  {
+    public void handle(String[] args, Node node) {
         if (!isValidCommand(args)){
             return;
         }
@@ -31,19 +30,11 @@ public class SendMessageCommandHandler implements CommandHandler {
             log.error("ChatService is not initialized. Cannot send message.");
             return;
         }
-        try{
+        try {
             int receiverId = Integer.parseInt(args[0]);
-            String msg = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
-            Message message = new Message(receiverId, msg);
-            if(msg.isEmpty()){
-                log.warn("Your message is empty. Please rewrite your message");
-                return;
-            }
-            chatService.sendMessage(message.getReceiverID(), message.getMsg());
+            chatService.sendHello(receiverId);
         }catch (RemoteException e) {
-            log.error("Remote communication error: {}", e.getMessage());
-        }catch (NumberFormatException e){
-            log.error("Id of receiver must be number! Try again");
+            log.error("Something is wrong: " + e.getMessage());
         }
     }
 

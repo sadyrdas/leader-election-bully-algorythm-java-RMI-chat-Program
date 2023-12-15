@@ -1,22 +1,20 @@
 package cz.cvut.fel.dsva.semestralka;
 
-import cz.cvut.fel.dsva.semestralka.base.Node;
-import cz.cvut.fel.dsva.semestralka.pattern.commandHandler.CommandHandler;
-import cz.cvut.fel.dsva.semestralka.pattern.commandHandler.HelpCommandHandler;
-import cz.cvut.fel.dsva.semestralka.pattern.commandHandler.PrintStatusCommandHandler;
-import cz.cvut.fel.dsva.semestralka.pattern.commandHandler.SendMessageCommandHandler;
+import cz.cvut.fel.dsva.semestralka.pattern.commandHandler.*;
 import cz.cvut.fel.dsva.semestralka.service.ChatServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.Serializable;
+import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.util.HashMap;
 import java.util.Map;
 
 @Slf4j
-public class ChatCLI implements Runnable {
+public class ChatCLI implements Runnable, Serializable, Remote {
     private BufferedReader reader;
     private final Map<String, CommandHandler> commandHandlers;
     private Node node;
@@ -26,8 +24,8 @@ public class ChatCLI implements Runnable {
     public ChatCLI(Node node) throws RemoteException {
         this.commandHandlers = new HashMap<>();
         this.reader = new BufferedReader(new InputStreamReader(System.in));
+        this.chatService = new ChatServiceImpl(node);
         this.node = node;
-        this.chatService = new ChatServiceImpl();
         initializeCommandHandlers();
     }
 
@@ -35,6 +33,9 @@ public class ChatCLI implements Runnable {
         commandHandlers.put("help", new HelpCommandHandler(chatService));
         commandHandlers.put("send", new SendMessageCommandHandler(chatService));
         commandHandlers.put("status", new PrintStatusCommandHandler(chatService));
+        commandHandlers.put("mymessages", new ReceiveMessageCommandHandler(chatService));
+        commandHandlers.put("hello", new SendHelloMessageCommandHandler(chatService));
+        commandHandlers.put("neighbours", new GetAddressesCommandHandler(chatService));
     }
 
     private void printWelcomeMessage(){
@@ -47,10 +48,10 @@ public class ChatCLI implements Runnable {
     }
     private void handleCommand(String command, String[] arguments){
         CommandHandler commandHandler = commandHandlers.get(command);
-        if (command != null){
+        if (commandHandler != null){
             commandHandler.handle(arguments, node);
         }else{
-            log.info("Unknown command, please try again ;3");
+            log.info("Unknown command '{}', using default handler", command);
         }
     }
 
@@ -73,6 +74,7 @@ public class ChatCLI implements Runnable {
         while (reading) {
             try {
                 System.out.print(System.lineSeparator() + "cmd > ");
+
                 commandline = reader.readLine();
 
                 if (commandline == null || commandline.equalsIgnoreCase("exit")) {

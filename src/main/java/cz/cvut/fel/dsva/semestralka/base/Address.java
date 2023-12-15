@@ -4,15 +4,15 @@ package cz.cvut.fel.dsva.semestralka.base;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.List;
+import java.io.Serializable;
 import java.util.Objects;
 
 @Getter
 @Setter
-public class Address {
-    private String host;
-    private int port;
-    private Long nodeID;
+public class Address implements Comparable<Address>, Serializable {
+    public String host;
+    public Integer port;
+    public Long nodeID;
 
     public Address(String host, int port){
         this.host = host;
@@ -26,10 +26,12 @@ public class Address {
     }
 
 
+
     @Override
     public String toString(){
-        return ("Address: " + "host " + host + " " + "port " + port);
+        return ("Address: " + "nodeId: " + nodeID + " " + "host: " + host + " " + "port: " + port);
     }
+
 
     @Override
     public boolean equals(Object object){
@@ -40,5 +42,19 @@ public class Address {
                     Objects.equals(address.getNodeID(), nodeID);
         }
         return false;
+    }
+
+    @Override
+    public int compareTo(Address address) {
+        int retval;
+        if ((retval = host.compareTo(address.getHost())) == 0 ) {
+            if ((retval = port.compareTo(address.getPort())) == 0 ) {
+                return 0;
+            }
+            else
+                return retval;
+        }
+        else
+            return retval;
     }
 }

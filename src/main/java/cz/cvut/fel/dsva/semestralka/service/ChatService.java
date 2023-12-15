@@ -1,13 +1,20 @@
 package cz.cvut.fel.dsva.semestralka.service;
 
+import cz.cvut.fel.dsva.semestralka.base.Address;
+import cz.cvut.fel.dsva.semestralka.base.DSNeighbours;
 import cz.cvut.fel.dsva.semestralka.base.Message;
-import cz.cvut.fel.dsva.semestralka.base.Node;
+import cz.cvut.fel.dsva.semestralka.Node;
 
+import java.io.Serializable;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.util.List;
 
 public interface ChatService extends Remote {
+
+    DSNeighbours join(Address add) throws RemoteException;
+
+
     // Method for a node to request sending message
     void sendMessage(int receiverID, String content) throws RemoteException;
 
@@ -18,7 +25,7 @@ public interface ChatService extends Remote {
     void printStatus(Node node) throws RemoteException;
 
     // Method for a node to request receiving message
-    void receiveMessage(Message message) throws  RemoteException;
+    void receiveMessage(String msg) throws  RemoteException;
 
     // Method for a node to request logIN
     void logIN(Node node) throws RemoteException;
@@ -33,4 +40,11 @@ public interface ChatService extends Remote {
     boolean hasNewMessages(Node node) throws RemoteException;
 
     void registerNode(Node node) throws RemoteException;
+
+    void sendHello(int receiverId) throws RemoteException;
+
+    void broadcastMessage(String message) throws RemoteException;
+    String getAddressesOfNeighbours() throws RemoteException;
+
+    void notifyJoin(Address newNeighbor) throws RemoteException;
 }

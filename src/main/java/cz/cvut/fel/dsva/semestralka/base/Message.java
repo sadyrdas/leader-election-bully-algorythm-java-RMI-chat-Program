@@ -8,15 +8,12 @@ import lombok.Setter;
 @Getter
 @Setter
 public class Message {
-    private int senderID;
     private int receiverID;
     private String msg;
 
-    public Message(int senderID, int receiverID, String msg){
-        this.senderID = senderID;
+    public Message(int receiverID, String msg){
         this.receiverID = receiverID;
         this.msg = msg;
     }
-
 
 }

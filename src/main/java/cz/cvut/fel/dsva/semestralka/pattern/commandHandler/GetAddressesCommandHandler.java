@@ -12,23 +12,24 @@ import java.rmi.RemoteException;
 @Slf4j
 @Getter
 @Setter
-public class HelpCommandHandler implements CommandHandler {
+public class GetAddressesCommandHandler implements CommandHandler {
     private ChatServiceImpl chatService;
 
-    public HelpCommandHandler(ChatServiceImpl chatService) {
+    public GetAddressesCommandHandler(ChatServiceImpl chatService) {
         this.chatService = chatService;
     }
 
     @Override
     public void handle(String[] args, Node node) {
         if (chatService == null) {
-            log.error("ChatService is not initialized. Cannot print commands.");
+            log.error("ChatService is not initialized. Cannot send message.");
             return;
         }
         try {
-            chatService.help();
+            log.info("Hello, this is your neighbours");
+            chatService.getAddressesOfNeighbours();
         } catch (RemoteException e) {
-            log.error("Remote communication error: {}", e.getMessage());
+            log.error("Something went wrong: " + e.getMessage());
         }
     }
 }
