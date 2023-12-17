@@ -14,6 +14,8 @@ public interface ChatService extends Remote {
 
     DSNeighbours join(Address add) throws RemoteException;
 
+    void updateNeighbors(DSNeighbours updatedNeighbors) throws RemoteException;
+
 
     // Method for a node to request sending message
     void sendMessage(int receiverID, String content) throws RemoteException;
@@ -27,11 +29,10 @@ public interface ChatService extends Remote {
     // Method for a node to request receiving message
     void receiveMessage(String msg) throws  RemoteException;
 
-    // Method for a node to request logIN
-    void logIN(Node node) throws RemoteException;
+    void notifyLeaderAboutEvent(String event) throws RemoteException;
 
     // Method for a node to logOUT
-    void logOUT(Node node) throws RemoteException;
+    void logOUT() throws RemoteException;
 
     // Method for a node to request its messages
     List<Message> getMessages(Node node) throws RemoteException;
@@ -46,5 +47,5 @@ public interface ChatService extends Remote {
     void broadcastMessage(String message) throws RemoteException;
     String getAddressesOfNeighbours() throws RemoteException;
 
-    void notifyJoin(Address newNeighbor) throws RemoteException;
+    void updateNeighborsList(Address newNeighbor, boolean join) throws RemoteException;
 }

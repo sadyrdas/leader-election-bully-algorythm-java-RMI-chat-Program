@@ -2,7 +2,6 @@ package cz.cvut.fel.dsva.semestralka.base;
 
 
 
-import cz.cvut.fel.dsva.semestralka.Node;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -10,7 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 
 @Slf4j
@@ -24,6 +23,7 @@ public class DSNeighbours implements Serializable {
         this.leaderNode = initialNode;
     }
 
+
     public Address getAddressById(int id) {
         for (Address address : neighbours){
             if (address.getNodeID() == id){
@@ -33,6 +33,27 @@ public class DSNeighbours implements Serializable {
         log.info(neighbours.toString());
         log.error("Couldn't find address with id {}", id);
         return null;
+    }
+    public Long getNodeIdFromAddress(Address address) {
+        for (Address neighbour : neighbours) {
+            if (neighbour.equals(address)) {
+                // Assuming Address class has a getNodeId() method
+                return neighbour.getNodeID();
+            }
+        }
+        // If the address is not found, return some default value or handle accordingly
+        return -1L; // Replace with an appropriate default or error handling
+    }
+
+    public void removeNodeById(int nodeId) {
+        Iterator<Address> iterator = neighbours.iterator();
+        while (iterator.hasNext()) {
+            Address address = iterator.next();
+            if (getNodeIdFromAddress(address) == nodeId) {
+                iterator.remove(); // Use iterator's remove method
+                break; // Break the loop after removing the element
+            }
+        }
     }
 
 
