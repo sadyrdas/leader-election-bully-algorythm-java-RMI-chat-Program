@@ -2,6 +2,8 @@ package cz.cvut.fel.dsva.semestralka;
 
 import cz.cvut.fel.dsva.semestralka.pattern.commandHandler.*;
 import cz.cvut.fel.dsva.semestralka.service.ChatServiceImpl;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.BufferedReader;
@@ -14,6 +16,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Slf4j
+@Getter
+@Setter
 public class ChatCLI implements Runnable, Serializable, Remote {
     private BufferedReader reader;
     private final Map<String, CommandHandler> commandHandlers;
@@ -33,20 +37,22 @@ public class ChatCLI implements Runnable, Serializable, Remote {
         commandHandlers.put("help", new HelpCommandHandler(chatService));
         commandHandlers.put("send", new SendMessageCommandHandler(chatService));
         commandHandlers.put("status", new PrintStatusCommandHandler(chatService));
-        commandHandlers.put("mymessages", new ReceiveMessageCommandHandler(chatService));
-        commandHandlers.put("hello", new SendHelloMessageCommandHandler(chatService));
         commandHandlers.put("neighbours", new GetAddressesCommandHandler(chatService));
         commandHandlers.put("logout", new LogOutCommandHandler(chatService));
+        commandHandlers.put("sendelectionmsg", new SendElectionMsgCommandHandler(chatService));
+        commandHandlers.put("checkstatus", new GetLeaderStatusCommandHandler(chatService));
     }
 
-    private void printWelcomeMessage(){
+    public void printWelcomeMessage(){
         log.info("Welcome to Chat Program! You are node with id {}", node.getNodeId());
         log.info("Tap 'help' to get available commands");
     }
 
-    private void stop(){
-        reading = false;
+    public void stop(){
+        Thread.currentThread().interrupt();
+        Runtime.getRuntime().halt(0);
     }
+
     private void handleCommand(String command, String[] arguments){
         CommandHandler commandHandler = commandHandlers.get(command);
         if (commandHandler != null){
@@ -67,10 +73,8 @@ public class ChatCLI implements Runnable, Serializable, Remote {
     }
 
 
-
     @Override
     public void run() {
-        printWelcomeMessage();
         String commandline;
         while (reading) {
             try {
@@ -88,10 +92,10 @@ public class ChatCLI implements Runnable, Serializable, Remote {
             } catch (IOException e) {
                 log.error("Error reading console input: {}", e.getMessage());
                 stop();
-
-
             }
         }
-        log.info("Closing ChatCLI.");
+        if (!reading){
+            stop();
+        }
     }
 }

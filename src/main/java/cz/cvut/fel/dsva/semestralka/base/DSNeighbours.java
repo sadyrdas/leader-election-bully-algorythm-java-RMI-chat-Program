@@ -30,7 +30,6 @@ public class DSNeighbours implements Serializable {
                 return address;
             }
         }
-        log.info(neighbours.toString());
         log.error("Couldn't find address with id {}", id);
         return null;
     }
@@ -64,8 +63,12 @@ public class DSNeighbours implements Serializable {
     public void addNewNode( Address address) {
         if (address.getPort() > 0 && !address.getHost().isEmpty()) {
             neighbours.add(address);
-            log.info("Adding new Node{hostname:{}, port:{}, nodeId:{}}",
-                    address.getHost(), address.getPort(), address.getNodeID());
+        }
+    }
+
+    public void removeNode(Address address){
+        if (neighbours.contains(address)){
+            neighbours.remove(address);
         }
     }
     @Override

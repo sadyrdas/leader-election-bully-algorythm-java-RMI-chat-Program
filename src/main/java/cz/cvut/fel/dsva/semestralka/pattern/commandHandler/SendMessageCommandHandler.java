@@ -39,7 +39,7 @@ public class SendMessageCommandHandler implements CommandHandler {
                 log.warn("Your message is empty. Please rewrite your message");
                 return;
             }
-            chatService.sendMessage(message.getReceiverID(), message.getMsg());
+            chatService.sendMessage(node.getNodeId(), message.getReceiverID(), message.getMsg());
         }catch (RemoteException e) {
             log.error("Remote communication error: {}", e.getMessage());
         }catch (NumberFormatException e){
