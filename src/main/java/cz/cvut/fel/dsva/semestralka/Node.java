@@ -160,6 +160,12 @@ public class Node implements  Runnable {
             log.info("First node in the topology, connecting to itself.");
             setTargetNetworkAddress(leaderNodeIP, leaderPort);
         } else {
+            try {
+                targetNetworkLatch.await(); // Wait until targetNetworkAddress is set
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+
             if (isTargetNetworkAddressSet &&
                     !(targetNetworkAddress.host.equals(bootstrapNodeIP) && targetNetworkAddress.port == bootstrapNodePort)) {
 
