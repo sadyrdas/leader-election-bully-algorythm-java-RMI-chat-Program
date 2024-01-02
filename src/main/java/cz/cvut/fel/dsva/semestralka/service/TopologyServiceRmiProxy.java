@@ -22,14 +22,45 @@ public class TopologyServiceRmiProxy {
         this.myNode = node;
     }
 
-    public void notifyOtherNodes() {
+    public void notifyAboutJoin(Address address) {
         List<Address> otherNodes = myNode.getNeighbours().getNeighbours().stream()
-                .filter(node -> !node.equals(myNode.getNeighbours().getLeaderNode()))  // Exclude the leader itself
+                .filter(node -> !node.equals(myNode.getNeighbours().getLeaderNode()))
+                .filter(node -> !node.equals(address))
+                .collect(Collectors.toList());;
+        for (Address otherNode : otherNodes) {
+            try {
+                ChatService otherNodeService = myNode.getCommunicationHUB().getRMIProxy(otherNode);
+                otherNodeService.notifyAboutJoin(address);
+            } catch (RemoteException e) {
+                log.error("Error notifying node " + otherNode + ": " + e.getMessage());
+            }
+        }
+    }
+
+    public void notifyAboutLogout(Address address) {
+        List<Address> otherNodes = myNode.getNeighbours().getNeighbours().stream()
+                .filter(node -> !node.equals(myNode.getNeighbours().getLeaderNode()))
+                .filter(node -> !node.equals(address))
                 .collect(Collectors.toList());
         for (Address otherNode : otherNodes) {
             try {
                 ChatService otherNodeService = myNode.getCommunicationHUB().getRMIProxy(otherNode);
-                otherNodeService.notifyAboutUpdatedNeighbors(otherNodes);
+                otherNodeService.notifyAboutLogOut(address);
+            } catch (RemoteException e) {
+                log.error("Error notifying node " + otherNode + ": " + e.getMessage());
+            }
+        }
+    }
+    public void notifyAboutNewLeader(Address address, Address loggedOut) {
+        List<Address> otherNodes = myNode.getNeighbours().getNeighbours().stream()
+                .filter(node -> !node.equals(myNode.getNeighbours().getLeaderNode()))
+                .filter(node -> !node.equals(loggedOut))
+                .filter(node -> !node.equals(address))
+                .collect(Collectors.toList());
+        for (Address otherNode : otherNodes) {
+            try {
+                ChatService otherNodeService = myNode.getCommunicationHUB().getRMIProxy(otherNode);
+                otherNodeService.notifyAboutNewLeader(address);
             } catch (RemoteException e) {
                 log.error("Error notifying node " + otherNode + ": " + e.getMessage());
             }
@@ -57,19 +88,29 @@ public class TopologyServiceRmiProxy {
                 ChatService otherNodeService = myNode.getCommunicationHUB().getRMIProxy(otherNode);
                 otherNodeService.repairTopologyAfterLogOut(nodeId);
             } catch (RemoteException e) {
-                log.error("Error notifying node " + otherNode + ": " + e.getMessage());
+                return;
             }
         }
     }
 
+    public void notifyLeaderAboutJoin(Address address){
+        Address leader = myNode.getNeighbours().getLeaderNode();
+        try {
+            ChatService otherNodeService = myNode.getCommunicationHUB().getRMIProxy(leader);
+            otherNodeService.notifyLeaderAboutJoin(address);
+        } catch (RemoteException e) {
+            log.error("Error notifying node " + leader + ": " + e.getMessage());
+        }
+    }
+
     public synchronized void repairTopologyWithNewLeader(Address address) {
-        List<Address> neighbors = new ArrayList<>(myNode.getNeighbours().getNeighbours());
+        List<Address> neighbors = myNode.getNeighbours().getNeighbours().stream()
+                .filter(node -> !node.equals(myNode.getNeighbours().getLeaderNode()))
+                .collect(Collectors.toList());
         for (Address otherNode : neighbors) {
             try {
                 ChatService otherNodeService = myNode.getCommunicationHUB().getRMIProxy(otherNode);
                 otherNodeService.repairTopologyWithNewLeader(neighbors, address);
-                otherNodeService.changeRmi(address);
-                myNode.getCommunicationHUB().setRmiProxy(address);
             } catch (RemoteException e) {
                 log.error("Error notifying node " + otherNode + ": " + e.getMessage());
             }
@@ -90,14 +131,6 @@ public class TopologyServiceRmiProxy {
 
         // Clear the original list after successful iteration
         myNode.getNeighbours().getNeighbours().clear();
-    }
-
-    public void showCurrentTopology(List<Address> otherNodes) {
-        log.info("Received updating current topology from Leader with id {}", myNode.getNeighbours().getLeaderNode().getNodeID());
-        System.out.println("Current topology:");
-        System.out.printf("Your address: %s%n", myNode.getAddress().getHost());
-        System.out.printf("Your neighbour: %s%n", otherNodes);
-        System.out.printf("Leader: %s%n", myNode.getNeighbours().getLeaderNode());
     }
 
 }

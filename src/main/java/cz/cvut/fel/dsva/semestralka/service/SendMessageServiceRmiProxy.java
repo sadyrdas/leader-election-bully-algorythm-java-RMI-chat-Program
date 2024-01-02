@@ -31,25 +31,46 @@ public class SendMessageServiceRmiProxy {
     }
 
     public void broadCastMessage(long senderId, int receiverId, String message){
-        Address destinationAddress = myNode.getNeighbours().getAddressById( receiverId);
+        Address destinationAddress = myNode.getNeighbours().getAddressById(receiverId);
         try {
-            if (destinationAddress != null && myNode.getBullyAlgorithm().isLeaderAlive()) {
+            if (destinationAddress != null && destinationAddress.isOnline() && myNode.getBullyAlgorithm().isLeaderAlive()) {
                 ChatService destinationNode = myNode.getCommunicationHUB().getRMIProxy(destinationAddress);
                 destinationNode.receiveMessage(message, senderId);
                 sendResponseToNodeFromLeader(senderId, receiverId, "OK");
-            } else if(destinationAddress == null){
-                sendResponseToNodeFromLeader(senderId, receiverId,"FAIL, Node is offline");
-            }else {
-                log.error("Leader is not alive receiver  will get info about this .");
-                ChatService destinationNode = myNode.getCommunicationHUB().getRMIProxy(destinationAddress);
-                destinationNode.receiveMessage("Someone was trying to send you message but \nLeader is not alive. Sorry, we will start election as fast as possible", receiverId);
-                sentMessageStatus = false;
+            } else {
+                handleOfflineNode(senderId, receiverId, destinationAddress);
             }
         } catch (RemoteException e) {
-            log.error("Failed to send message: Leader is out");
-            sentMessageStatus = false;
+            handleOfflineNode(senderId, receiverId, destinationAddress);
         }
     }
+
+    private void handleOfflineNode(long senderId, int receiverId, Address destinationAddress) {
+        sendResponseToNodeFromLeader(senderId, receiverId, "FAIL, Node is offline");
+        setSentMessageStatus(false);
+        if (destinationAddress != null && myNode.getBullyAlgorithm().isLeaderAlive()) {
+            Address sender = myNode.getNeighbours().getAddressById((int) senderId);
+            Address leaderNode = myNode.getNeighbours().getLeaderNode();
+            try {
+                ChatService senderChatService = myNode.getCommunicationHUB().getRMIProxy(sender);
+                senderChatService.logInfo("DestinationNode has logout force.");
+            } catch (RemoteException e) {
+                log.error("Error notifying sender " + e.getMessage());
+                sentMessageStatus = false;
+            }
+            try {
+                ChatService receiverChatService = myNode.getCommunicationHUB().getRMIProxy(leaderNode);
+                receiverChatService.logInfo("DestinationNode has logout force. Start repair topology");
+            } catch (RemoteException e) {
+                log.error("Error notifying sender " + e.getMessage());
+                sentMessageStatus = false;
+            }
+            myNode.getTopologyServiceRmiProxy().notifyAboutLogout(destinationAddress);
+            myNode.getTopologyServiceRmiProxy().repairTopologyAfterLogOut(receiverId);
+        }
+    }
+
+
 
 
     public void sendResponseToNodeFromLeader(long senderId, long receiverId, String message){

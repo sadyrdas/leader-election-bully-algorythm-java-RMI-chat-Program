@@ -25,7 +25,7 @@ public class LogOutCommandHandler implements CommandHandler{
             return;
         }
         try {
-            chatService.logOUT(node.getAddress());
+            chatService.logOUT();
         }catch (RemoteException e) {
             log.error("Something is wrong: " + e.getMessage());
         }

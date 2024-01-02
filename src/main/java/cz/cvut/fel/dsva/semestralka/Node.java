@@ -5,10 +5,7 @@ import cz.cvut.fel.dsva.semestralka.base.DSNeighbours;
 import cz.cvut.fel.dsva.semestralka.base.Message;
 import cz.cvut.fel.dsva.semestralka.bully.BullyAlgorithm;
 import cz.cvut.fel.dsva.semestralka.communication.CommunicationHUB;
-import cz.cvut.fel.dsva.semestralka.service.ChatService;
-import cz.cvut.fel.dsva.semestralka.service.ChatServiceImpl;
-import cz.cvut.fel.dsva.semestralka.service.SendMessageServiceRmiProxy;
-import cz.cvut.fel.dsva.semestralka.service.TopologyServiceRmiProxy;
+import cz.cvut.fel.dsva.semestralka.service.*;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -17,9 +14,12 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
+import java.util.stream.Collectors;
+
+import static java.lang.Thread.sleep;
 
 @Slf4j
 @Getter
@@ -30,8 +30,6 @@ public class Node implements  Runnable {
     private int myPort;
     private Address address;
     private DSNeighbours neighbours;
-    private Boolean isLeader;
-    private List<Message> messageList;
     private ChatCLI chatCLI;
     private TopologyServiceRmiProxy topologyServiceRmiProxy;
     private SendMessageServiceRmiProxy sendMessageServiceRmiProxy;
@@ -44,13 +42,19 @@ public class Node implements  Runnable {
     private BullyAlgorithm bullyAlgorithm;
     public static String nameRMI = "ChatService";
     private final Object lock = new Object();
-    private volatile Address targetNetworkAddress;
+    private Address targetNetworkAddress = new Address(leaderNodeIP, leaderPort, leaderId);
+    private volatile boolean firstAttempt = true;
+    public synchronized boolean isFirstAttempt() {
+        return firstAttempt;
+    }
+
+    public synchronized void setFirstAttempt(boolean firstAttempt) {
+        this.firstAttempt = firstAttempt;
+    }
 
 
 
-
-
-    public Node(String[] args) {
+    public Node( String[] args) {
         if (args.length == 2) {
             nodeId =  Integer.parseInt(args[0]);
             myIP   = args[1];
@@ -67,7 +71,7 @@ public class Node implements  Runnable {
     }
 
 
-    public ChatService startChatService(){
+    public ChatService startChatService() throws RemoteException {
         ChatService chatService = null;
 
         try {
@@ -89,56 +93,104 @@ public class Node implements  Runnable {
         return chatService;
     }
 
-    private boolean isTargetNetworkAddressSet = false;
-
-
-
-    private boolean leaderSetTargetNetwork = false;
-
-
-
-    private final CountDownLatch targetNetworkLatch = new CountDownLatch(1);
-
-    // Other class members...
-
-    public synchronized void setTargetNetworkAddress(String newLeaderNodeIP, int newLeaderPort) {
-        targetNetworkAddress = new Address(newLeaderNodeIP, newLeaderPort);
-        log.info("Target network address set: {}", targetNetworkAddress);
-
-        targetNetworkLatch.countDown();
-        notifyAll();// Signal that targetNetworkAddress is set
-    }
-
-
-
-    String bootstrapNodeIP = "127.0.0.1"; // Change this to the IP of your bootstrap node.
-    int bootstrapNodePort = 50003;
     private synchronized void initializeCommunicationHUB() {
         synchronized (lock) {
             try {
-                log.info("Attempting to connect to targetNetworkAddress: {}", targetNetworkAddress);
-                ChatService leader = communicationHUB.getRMIProxy(targetNetworkAddress);
-                // Existing node, continue with the current targetNetworkAddress
-                neighbours = leader.join(address);
-                setNeighbours(neighbours);
+                if (this.isFirstAttempt()) {
+                    log.info("First attempt to connect to the network.");
+                    log.info("Attempting to connect to targetNetworkAddress: {}", targetNetworkAddress);
+                    ChatService leader = communicationHUB.getRMIProxy(targetNetworkAddress);
+                    log.info("Joining network using leader {}: {}", targetNetworkAddress.host, targetNetworkAddress.port);
+                    neighbours = leader.join(address);
+                    setNeighbours(neighbours);
 
-
+                } else if (!this.isFirstAttempt()){
+                    // For subsequent attempts, ensure not connecting to self
+                    if (this.address.equals(targetNetworkAddress)) {
+                        log.info("Not first attempt. Old leader is dead, new leader is elected. Trying to join network using bootstrap.");
+                        joinNetworkUsingBootstrap();
+                    }
+                }
             } catch (RemoteException e) {
-                log.error("Error joining existing network: " + e.getMessage());
-                chatCLI.setReading(false);
+                log.error("Error joining existing network: OldLeader is dead. Start connect to newLeader");
+                joinNetworkUsingBootstrap();
             }
         }
     }
+
+
+
+    private synchronized void joinNetworkUsingBootstrap() {
+        boolean joined = false;
+        // Retrieve and filter available nodes
+        List<Address> availableNodes = getListOfAvailableNodes().stream()
+                .filter(node -> node.port != myPort)
+                .sorted((a, b) -> b.port - a.port)
+                .collect(Collectors.toList());
+
+        // Iterate over each node to try joining the network
+        for (Address nodeAddress : availableNodes) {
+            try {
+                // Get RMI proxy for the node
+                ChatService bootstrapNode = communicationHUB.getRMIProxy(nodeAddress);
+
+                // Request the current leader from the node
+                Address newLeader = bootstrapNode.getCurrentLeader();
+
+                // If a leader is found, join the network
+                if (newLeader != null) {
+                    log.info("Joining network using newLeader {}: {}", newLeader.host, newLeader.port);
+                    neighbours = bootstrapNode.join(address);
+                    setNeighbours(neighbours);
+                    joined = true;
+                    break; // Break the loop as the network is successfully joined
+                }
+            } catch (Exception e) {
+                log.warn("Failed to connect to node at {}:{}. Trying next node.", nodeAddress.host, nodeAddress.port);
+            }
+        }
+
+        // Handling case where no connection was successful
+        if (!joined) {
+            log.info("No available bootstrap node found. Continuing with the current targetNetworkAddress.");
+        }
+
+    }
+
+
+
+    public synchronized List<Address> getListOfAvailableNodes() {
+        List<Address> availableNodes = new ArrayList<>();
+        Address nodeAddress5 = new Address("127.0.0.1", 50005);
+        Address nodeAddress4 = new Address("127.0.0.1", 50004);
+        Address nodeAddress3 = new Address("127.0.0.1", 50003);
+        Address nodeAddress2 = new Address("127.0.0.1", 50002);
+        Address nodeAddress1 = new Address("127.0.0.1", 50001);
+        availableNodes.add(nodeAddress1);
+        availableNodes.add(nodeAddress2);
+        availableNodes.add(nodeAddress3);
+        availableNodes.add(nodeAddress4);
+        availableNodes.add(nodeAddress5);
+        return availableNodes;
+    }
+
+
+
+
 
     @Override
     public synchronized void run() {
         address = new Address(myIP, myPort, nodeId);
         try {
+            chatService = startChatService();
+        } catch (RemoteException e) {
+            throw new RuntimeException(e);
+        }
+        try {
             chatCLI = new ChatCLI(this);
         } catch (RemoteException e) {
             log.error("Something wrong with ChatCLI " + e.getMessage());
         }
-
         if (!chatCLI.isReading()) {
             log.info("Closing ChatCLI.");
             log.info("ChatService stopped!");
@@ -146,67 +198,24 @@ public class Node implements  Runnable {
         } else {
             startChatCLI();
         }
-
-        chatService = startChatService();
-        neighbours = new DSNeighbours(address);
+        neighbours = new DSNeighbours();
         communicationHUB = new CommunicationHUB(this);
+        getListOfAvailableNodes();
         topologyServiceRmiProxy = new TopologyServiceRmiProxy(this);
         sendMessageServiceRmiProxy = new SendMessageServiceRmiProxy(this);
         bullyAlgorithm = new BullyAlgorithm(this);
-
-        // Check if it's the first node in the topology
-        if (isFirstNode()) {
-            // Connect to itself
-            log.info("First node in the topology, connecting to itself.");
-            setTargetNetworkAddress(leaderNodeIP, leaderPort);
-        } else {
-            try {
-                targetNetworkLatch.await(); // Wait until targetNetworkAddress is set
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-
-            if (isTargetNetworkAddressSet &&
-                    !(targetNetworkAddress.host.equals(bootstrapNodeIP) && targetNetworkAddress.port == bootstrapNodePort)) {
-
-                setTargetNetworkAddress(leaderNodeIP, leaderPort);
-                log.info("Joining network using existing leader {}: {}", targetNetworkAddress.host, targetNetworkAddress.port);
-            } else {
-
-                joinNetworkUsingBootstrap();
-            }
-
-        }
-
         initializeCommunicationHUB();
     }
 
-    private boolean isFirstNode() {
-        // Check if nodeId is equal to 1
-        return nodeId == 5;
-    }
-    private synchronized void joinNetworkUsingBootstrap() {
-        // ...
 
-        try {
-            ChatService bootstrapNode = communicationHUB.getRMIProxy(new Address(bootstrapNodeIP, bootstrapNodePort));
-            Address newLeader = bootstrapNode.getCurrentLeader();
-
-            // Check if the leader is not alive before using bootstrap
-            if (newLeader != null) {
-                setTargetNetworkAddress(newLeader.host, newLeader.port);
-                log.info("Joining network using leader {}: {}", newLeader.host, newLeader.port);
-            } else {
-                log.info("Leader is alive, continuing with current targetNetworkAddress.");
-            }
-
-        } catch (RemoteException e) {
-            log.error("Error joining network using bootstrap: " + e.getMessage());
-        }
-    }
 
 
     public static void main(String[] args) {
+        if (args.length < 1) {
+            System.err.println("Usage: java Main <node1_args> <node2_args>");
+            System.exit(1);
+        }
+
         thisNode = new Node(args);
         thisNode.run();
     }

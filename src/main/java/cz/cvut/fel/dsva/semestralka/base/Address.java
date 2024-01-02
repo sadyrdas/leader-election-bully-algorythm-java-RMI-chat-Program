@@ -13,6 +13,8 @@ public class Address implements Comparable<Address>, Serializable {
     public String host;
     public Integer port;
     public Long nodeID;
+    private boolean isOnline = true;
+
 
     public Address(String host, int port){
         this.host = host;
@@ -38,7 +40,7 @@ public class Address implements Comparable<Address>, Serializable {
         if (object instanceof Address){
             Address address = (Address) object;
             return Objects.equals(address.getHost(), host) &&
-                    address.getPort() == port &&
+                    Objects.equals(address.getPort(), port) &&
                     Objects.equals(address.getNodeID(), nodeID);
         }
         return false;

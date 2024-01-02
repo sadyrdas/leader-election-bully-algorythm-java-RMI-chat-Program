@@ -33,10 +33,14 @@ public class BullyAlgorithm{
     public List<Address> findAllNodesWithHigherID(long senderId) {
         dsNeighbours = myNode.getNeighbours();
         Address leader = dsNeighbours.getLeaderNode();
+        Address address = dsNeighbours.getAddressById((int) senderId);
         List<Address> otherNodes = dsNeighbours.getNeighbours().stream()
                 .filter(node -> !node.equals(leader))
                 .filter(node -> node.getNodeID() > senderId)
                 .collect(Collectors.toList());
+        if (otherNodes.isEmpty()){
+            otherNodes.add(address);
+        }
         log.info("Filtered nodes: {}", otherNodes);
         return otherNodes;
 
@@ -53,15 +57,20 @@ public class BullyAlgorithm{
     }
 
 
-    public void sendElectionProxy(long senderId){
+    public void sendElectionProxy(long senderId) {
         List<Address> otherNodes = findAllNodesWithHigherID(senderId);
-        for (Address otherNode : otherNodes) {
-            try {
-                ChatService otherNodeService = myNode.getCommunicationHUB().getRMIProxy(otherNode);
-                otherNodeService.receiveMessage("Leader is out, i will start election", senderId);
-                otherNodeService.sendResponseForStartingElection(senderId, otherNode.getNodeID());
-            } catch (RemoteException e) {
-                log.error("Error notifying node " + otherNode + ": " + e.getMessage());
+        Address address = myNode.getNeighbours().getAddressById((int) senderId);
+        if (otherNodes.size() == 1 && otherNodes.contains(address)) {
+            log.info("No other pretends to be a leader");
+        } else {
+            for (Address otherNode : otherNodes) {
+                try {
+                    ChatService otherNodeService = myNode.getCommunicationHUB().getRMIProxy(otherNode);
+                    otherNodeService.receiveMessage("Leader is out, i will start election", senderId);
+                    otherNodeService.sendResponseForStartingElection(senderId, otherNode.getNodeID());
+                } catch (RemoteException e) {
+                    log.error("Error notifying node " + otherNode + ": " + e.getMessage());
+                }
             }
         }
     }
@@ -79,6 +88,7 @@ public class BullyAlgorithm{
     }
 
     public void setFutureLeader(List<Address> highestPriorityNodes){
+        Address leaderNode = myNode.getNeighbours().getLeaderNode();
         Address address = getHighestPriorityNode(highestPriorityNodes);
         List<Address> otherNodes = highestPriorityNodes.stream()
                 .filter(node -> !node.equals(address))
@@ -95,7 +105,7 @@ public class BullyAlgorithm{
         try {
             ChatService futureLeaderService = myNode.getCommunicationHUB().getRMIProxy(address);
             futureLeaderService.logInfo("Now i will become leader and repair topology");
-            futureLeaderService.election(address);
+            futureLeaderService.election(address, leaderNode);
         }catch (RemoteException e) {
             log.error("Couldn't get responses");
         }

@@ -37,10 +37,11 @@ public class ChatCLI implements Runnable, Serializable, Remote {
         commandHandlers.put("help", new HelpCommandHandler(chatService));
         commandHandlers.put("send", new SendMessageCommandHandler(chatService));
         commandHandlers.put("status", new PrintStatusCommandHandler(chatService));
-        commandHandlers.put("neighbours", new GetAddressesCommandHandler(chatService));
+        commandHandlers.put("topology", new GetAddressesCommandHandler(chatService));
         commandHandlers.put("logout", new LogOutCommandHandler(chatService));
         commandHandlers.put("sendelectionmsg", new SendElectionMsgCommandHandler(chatService));
         commandHandlers.put("checkstatus", new GetLeaderStatusCommandHandler(chatService));
+        commandHandlers.put("logoutforce", new LogOutForceCommandHandler(chatService));
     }
 
     public void printWelcomeMessage(){

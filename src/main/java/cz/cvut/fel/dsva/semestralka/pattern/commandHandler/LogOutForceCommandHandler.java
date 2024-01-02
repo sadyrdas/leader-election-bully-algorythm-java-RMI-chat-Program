@@ -8,13 +8,13 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.rmi.RemoteException;
 
-@Slf4j
 @Getter
 @Setter
-public class GetAddressesCommandHandler implements CommandHandler {
+@Slf4j
+public class LogOutForceCommandHandler implements CommandHandler {
     private ChatServiceImpl chatService;
 
-    public GetAddressesCommandHandler(ChatServiceImpl chatService) {
+    public LogOutForceCommandHandler(ChatServiceImpl chatService) {
         this.chatService = chatService;
     }
 
@@ -25,9 +25,9 @@ public class GetAddressesCommandHandler implements CommandHandler {
             return;
         }
         try {
-            chatService.getTopology(node.getAddress());
-        } catch (RemoteException e) {
-            log.error("Something went wrong: " + e.getMessage());
+            chatService.logOUTForce();
+        }catch (RemoteException e) {
+            log.error("Something is wrong: " + e.getMessage());
         }
     }
 }

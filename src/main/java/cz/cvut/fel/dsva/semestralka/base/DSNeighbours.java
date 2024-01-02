@@ -18,9 +18,8 @@ import java.util.List;
 public class DSNeighbours implements Serializable {
     private List<Address> neighbours;
     private Address leaderNode;
-    public DSNeighbours(Address initialNode) {
+    public DSNeighbours() {
         this.neighbours = new ArrayList<>();
-        this.leaderNode = initialNode;
     }
 
 
@@ -30,7 +29,6 @@ public class DSNeighbours implements Serializable {
                 return address;
             }
         }
-        log.error("Couldn't find address with id {}", id);
         return null;
     }
     public Long getNodeIdFromAddress(Address address) {

@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.rmi.RemoteException;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Getter
@@ -24,6 +25,21 @@ public class ChatServiceImpl implements ChatService {
 
 
     @Override
+    public void notifyAboutJoin(Address address) throws RemoteException {
+        System.out.printf("Node with id : %s has join, please check topology", address.nodeID);
+    }
+
+    @Override
+    public void notifyAboutLogOut(Address address) throws RemoteException {
+        System.out.printf("Node with id : %s has logout, please check topology", address.nodeID);
+    }
+
+    @Override
+    public void notifyAboutNewLeader(Address address) throws RemoteException{
+        System.out.printf("New leader is elected node with id: %s", address.nodeID);
+    }
+
+    @Override
     public DSNeighbours join(Address addr) throws RemoteException {
         log.info("Join was called ...");
 
@@ -36,27 +52,26 @@ public class ChatServiceImpl implements ChatService {
             dsNeighbours.setLeaderNode(addr);
             return dsNeighbours;
         } else {
-            log.info("Someone is joining");
-            log.info("Added node with address {}", addr);
-            myNode.getTopologyServiceRmiProxy().repairTopologyAfterJoin(addr);
-            myNode.getTopologyServiceRmiProxy().notifyOtherNodes();
-            log.info("Updating topology and send updated topology to otherNodes");
-            log.info("Neighbours after JOIN: {}", dsNeighbours);
+            myNode.getTopologyServiceRmiProxy().notifyLeaderAboutJoin(addr);
             return dsNeighbours;
         }
     }
 
-
     @Override
-    public void notifyAboutUpdatedNeighbors(List<Address> addressNeighbours) throws RemoteException {
-        myNode.getTopologyServiceRmiProxy().showCurrentTopology(addressNeighbours);
+    public void notifyLeaderAboutJoin(Address address){
+        log.info("Someone is joining");
+        log.info("Added node with address {}", address);
+        myNode.getTopologyServiceRmiProxy().repairTopologyAfterJoin(address);
+        log.info("Updating topology and send updated topology to otherNodes");
+        myNode.getTopologyServiceRmiProxy().notifyAboutJoin(address);
     }
+
+
 
     @Override
     public void repairTopologyAfterJoin(Address address) throws RemoteException {
         DSNeighbours dsNeighbours = myNode.getNeighbours();
         dsNeighbours.addNewNode(address);
-        dsNeighbours.setLeaderNode(myNode.getNeighbours().getLeaderNode());
         myNode.setNeighbours(dsNeighbours);
     }
 
@@ -86,6 +101,9 @@ public class ChatServiceImpl implements ChatService {
         log.info("'status' - Print your status");
         log.info("'neighbours' - Show list of neighbours");
         log.info("'logout' - Log out from chat" );
+        log.info("'logoutforce' - Log out without notify");
+        log.info("'checkstatus' - Check status of LeaderNode");
+        log.info("'sendeelctionmsg' - Send Election message to start Election");
 
     }
     @Override
@@ -98,7 +116,7 @@ public class ChatServiceImpl implements ChatService {
     @Override
     public void notifyNodeAboutSentMessage(long senderId, long receiverId, String message) throws RemoteException{
         if (!myNode.getBullyAlgorithm().isLeaderAlive()){
-            log.info("Your message to Node with id {} was sent with status {} Please check if receiver is active and retry later", receiverId, message);
+            log.info("Your message to Node with id {} was sent with status {} Please check if leader is active and retry later", receiverId, message);
         }else {
             log.info("Your message to Node with id {} was sent with status {}", receiverId, message);
         }
@@ -132,6 +150,7 @@ public class ChatServiceImpl implements ChatService {
         }
     }
 
+
     @Override
     public void sendElectionMsg(long senderId) throws RemoteException {
         log.info("I will start election");
@@ -153,36 +172,33 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    public void election(Address address) throws RemoteException {
+    public void election(Address address, Address loggedOut) throws RemoteException {
+        myNode.getTopologyServiceRmiProxy().repairTopologyWithNewLeader(address);
         DSNeighbours dsNeighbours = myNode.getNeighbours();
         dsNeighbours.setLeaderNode(address);
+        myNode.setNeighbours(dsNeighbours);
         myNode.getBullyAlgorithm().setLeaderAlive(true);
         myNode.getSendMessageServiceRmiProxy().setSentMessageStatus(true);
-        myNode.setNeighbours(dsNeighbours);
-        myNode.getTopologyServiceRmiProxy().repairTopologyWithNewLeader(address);
-        myNode.getTopologyServiceRmiProxy().notifyOtherNodes();
+        myNode.getTopologyServiceRmiProxy().notifyAboutNewLeader(address, loggedOut);
     }
 
     @Override
     public void repairTopologyWithNewLeader(List<Address> addresses, Address address) throws RemoteException {
         DSNeighbours dsNeighbours = myNode.getNeighbours();
-        myNode.getCommunicationHUB().setRmiProxy(address);
+        Long id = myNode.getNeighbours().getNodeIdFromAddress(myNode.getNeighbours().getLeaderNode());
+        repairTopologyAfterLogOut(Math.toIntExact(id));
         dsNeighbours.setLeaderNode(address);
         myNode.getBullyAlgorithm().setLeaderAlive(true);
-        myNode.getCommunicationHUB().setRmiProxy(address);
         myNode.setNeighbours(dsNeighbours);
     }
 
-    @Override
-    public synchronized void changeRmi(Address address) throws RemoteException {
-        myNode.setTargetNetworkAddress(address.host, address.port);
-        myNode.getCommunicationHUB().setRmiProxy(address);
-    }
 
     @Override
     public Address getCurrentLeader() throws RemoteException {
         return myNode.getNeighbours().getLeaderNode();
     }
+
+
 
     @Override
     public void sendResponseForStartingElection(long senderId, Long receiverId) throws RemoteException {
@@ -196,8 +212,9 @@ public class ChatServiceImpl implements ChatService {
         String[] parts = message.split(" ");
         if (parts.length >= 2) {
             int nodeId = Integer.parseInt(parts[1]);
+            Address address = myNode.getNeighbours().getAddressById(nodeId);
             myNode.getTopologyServiceRmiProxy().repairTopologyAfterLogOut(nodeId);
-            myNode.getTopologyServiceRmiProxy().notifyOtherNodes();
+            myNode.getTopologyServiceRmiProxy().notifyAboutLogout(address);
             log.info("Node {} has logged out.", nodeId);
             log.info("Updating topology and send updated topology to otherNodes");
         }
@@ -206,29 +223,39 @@ public class ChatServiceImpl implements ChatService {
 
 
     @Override
-    public void logOUT(Address address) throws RemoteException {
+    public void logOUT() throws RemoteException {
         log.info("Started LogOut");
         if (myNode.getAddress().compareTo(myNode.getNeighbours().getLeaderNode()) == 0){
             System.out.println("You are leader");
             System.out.println("Your absence can be without consequences. I will find new leader.");
-            myNode.getTopologyServiceRmiProxy().broadcastLogout();
-            myNode.getChatCLI().stop();
         }
+        myNode.getAddress().setOnline(false);
+        myNode.getChatCLI().setReading(false);
         myNode.getTopologyServiceRmiProxy().broadcastLogout();
-        myNode.getChatCLI().stop();
+    }
+
+    @Override
+    public void logOUTForce() throws RemoteException {
+        if (myNode.getAddress().compareTo(myNode.getNeighbours().getLeaderNode()) == 0){
+            System.out.println("You are leader");
+            System.out.println("Your absence can be without consequences..");
+        }
+        myNode.getAddress().setOnline(false);
+        log.info("FirstAttempt: {}" , myNode.isFirstAttempt());
+        myNode.getChatCLI().setReading(false);
     }
 
 
-
     @Override
-    public String getAddressesOfNeighbours() throws RemoteException {
-        DSNeighbours activeNeighbours = myNode.getNeighbours();
-        if (!activeNeighbours.getNeighbours().isEmpty()) {
-            log.info("Your neighbours {} \n Leader {}", activeNeighbours.getNeighbours(), activeNeighbours.getLeaderNode());
-            return "Your neighbours: " + activeNeighbours.getNeighbours();
-        } else {
-            log.warn("No active neighbours found.");
-            return "No active neighbours found.";
-        }
+    public void getTopology(Address address) throws RemoteException {
+        List<Address> neighbors = myNode.getNeighbours().getNeighbours().stream()
+                .filter(node -> !node.equals(address))
+                        .collect(Collectors.toList());
+        log.info("Received updating current topology from Leader");
+        System.out.println("Current topology:");
+        System.out.printf("Your address: %s%n", address);
+        System.out.printf("Your neighbour: %s%n", neighbors);
+        System.out.printf("Leader: %s%n", myNode.getNeighbours().getLeaderNode());
+
     }
 }
