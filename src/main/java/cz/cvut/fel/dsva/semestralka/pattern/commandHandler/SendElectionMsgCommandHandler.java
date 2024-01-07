@@ -28,7 +28,7 @@ public class SendElectionMsgCommandHandler implements CommandHandler{
             return;
         }
         try{
-            chatService.sendElectionMsg(node.getNodeId());
+            chatService.electionByOldLeader(node.getAddress());
         }catch (RemoteException e) {
             log.error("Remote communication error: {}", e.getMessage());
         }

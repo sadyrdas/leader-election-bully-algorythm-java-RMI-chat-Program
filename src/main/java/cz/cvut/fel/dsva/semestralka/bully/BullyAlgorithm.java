@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.rmi.RemoteException;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -146,6 +147,23 @@ public class BullyAlgorithm{
         };
         long delay = 4;
         myNode.getScheduler().schedule(leaderTask, delay, TimeUnit.SECONDS);
+    }
+
+    public void startElectionByLeaderAgain(Address sender) {
+        Address address = myNode.getNeighbours().getAddressById(5);
+
+        // Assuming getNeighbours() returns a List<Address>, create a CopyOnWriteArrayList from it
+        List<Address> otherNodes = new CopyOnWriteArrayList<>(myNode.getNeighbours().getNeighbours());
+
+        for (Address otherNode : otherNodes) {
+            try {
+                ChatService chatService = myNode.getCommunicationHUB().getRMIProxy(otherNode);
+                chatService.electionByLeaderAgain(address, sender);
+                chatService.notifyAboutNewLeader(address);
+            } catch (RemoteException e) {
+                log.error("Couldn't get responses");
+            }
+        }
     }
 
 

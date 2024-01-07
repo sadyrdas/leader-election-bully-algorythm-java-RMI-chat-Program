@@ -38,5 +38,6 @@ public interface ChatService extends Remote {
     void election(Address address,  Address loggedOut) throws RemoteException;
     void sendResponseForStartingElection(long senderId, Long receiverId) throws RemoteException;
     void sendResponseAboutLeader() throws RemoteException;
-
+    void electionByLeaderAgain(Address address, Address sender) throws RemoteException;
+    void electionByOldLeader(Address sender) throws RemoteException;
 }

@@ -187,6 +187,22 @@ public class ChatServiceImpl implements ChatService {
         myNode.getSendMessageServiceRmiProxy().setSentMessageStatus(true);
         myNode.getTopologyServiceRmiProxy().notifyAboutNewLeader(address, loggedOut);
     }
+    @Override
+    public void electionByLeaderAgain(Address address, Address sender) throws RemoteException {
+        myNode.getTopologyServiceRmiProxy().repairTopologyWithNewLeader(address);
+        DSNeighbours dsNeighbours = myNode.getNeighbours();
+        dsNeighbours.setLeaderNode(address);
+        dsNeighbours.addNewNode(sender);
+        myNode.setNeighbours(dsNeighbours);
+        myNode.getBullyAlgorithm().setLeaderAlive(true);
+        myNode.getSendMessageServiceRmiProxy().setSentMessageStatus(true);
+    }
+
+    @Override
+    public void electionByOldLeader(Address sender) throws RemoteException{
+        myNode.getBullyAlgorithm().startElectionByLeaderAgain(sender);
+
+    }
 
     @Override
     public void repairTopologyWithNewLeader(List<Address> addresses, Address address) throws RemoteException {
