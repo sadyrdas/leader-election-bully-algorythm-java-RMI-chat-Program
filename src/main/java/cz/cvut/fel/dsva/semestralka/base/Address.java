@@ -3,6 +3,7 @@ package cz.cvut.fel.dsva.semestralka.base;
 
 import lombok.Getter;
 import lombok.Setter;
+import org.json.simple.JSONObject;
 
 import java.io.Serializable;
 import java.util.Objects;
@@ -60,5 +61,22 @@ public class Address implements Comparable<Address>, Serializable {
         }
         else
             return retval;
+    }
+
+    public JSONObject toJson() {
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.put("host", this.host);
+        jsonObject.put("port", this.port);
+        jsonObject.put("nodeID", this.nodeID);
+        return jsonObject;
+    }
+
+    public static Address fromJson(JSONObject jsonObject) {
+        String host = (String) jsonObject.get("host");
+        Integer port = ((Long) jsonObject.get("port")).intValue(); // Cast to Long then to Integer
+        Long nodeID = (Long) jsonObject.get("nodeID");
+
+        Address address = new Address(host, port, nodeID);
+        return address;
     }
 }

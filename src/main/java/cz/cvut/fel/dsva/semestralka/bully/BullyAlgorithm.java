@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.rmi.RemoteException;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -41,7 +42,7 @@ public class BullyAlgorithm{
         if (otherNodes.isEmpty()){
             otherNodes.add(address);
         }
-        log.info("Filtered nodes: {}", otherNodes);
+        log.info("Nodes with highest id: {}", otherNodes);
         return otherNodes;
 
     }
@@ -54,7 +55,20 @@ public class BullyAlgorithm{
         } catch (RemoteException e) {
             throw new RuntimeException(e);
         }
+
+        Runnable delayedTask = () -> {
+            try {
+                ChatService service = myNode.getCommunicationHUB().getRMIProxy(address);
+                service.sendElectionMsg(senderId);
+            } catch (RemoteException e) {
+                throw new RuntimeException(e);
+            }
+        };
+
+        long delay = 3; // Delay in seconds
+        myNode.getScheduler().schedule(delayedTask, delay, TimeUnit.SECONDS);
     }
+
 
 
     public void sendElectionProxy(long senderId) {
@@ -64,28 +78,40 @@ public class BullyAlgorithm{
             log.info("No other pretends to be a leader");
         } else {
             for (Address otherNode : otherNodes) {
-                try {
-                    ChatService otherNodeService = myNode.getCommunicationHUB().getRMIProxy(otherNode);
-                    otherNodeService.receiveMessage("Leader is out, i will start election", senderId);
-                    otherNodeService.sendResponseForStartingElection(senderId, otherNode.getNodeID());
-                } catch (RemoteException e) {
-                    log.error("Error notifying node " + otherNode + ": " + e.getMessage());
-                }
+                Runnable task = () -> {
+                    try {
+                        ChatService otherNodeService = myNode.getCommunicationHUB().getRMIProxy(otherNode);
+                        otherNodeService.receiveMessage("Leader is out, i will start election", senderId);
+                        otherNodeService.sendResponseForStartingElection(senderId, otherNode.getNodeID());
+                        ChatService sender = myNode.getCommunicationHUB().getRMIProxy(address);
+                        sender.logInfo("My work is done");
+                    } catch (RemoteException e) {
+                        log.error("Error notifying node " + otherNode + ": " + e.getMessage());
+                    }
+                };
+                long delay = 7; // Delay in seconds, adjust as needed
+                myNode.getScheduler().schedule(task, delay, TimeUnit.SECONDS);
             }
         }
     }
 
+
     public void startElectionAgain(long senderId){
         List<Address> otherNodes = findAllNodesWithHigherID(senderId);
         for (Address otherNode : otherNodes) {
-            try {
-                ChatService otherNodeService = myNode.getCommunicationHUB().getRMIProxy(otherNode);
-                otherNodeService.startElectionAgain(otherNodes);
-            } catch (RemoteException e) {
-                log.error("Error notifying node " + otherNode + ": " + e.getMessage());
-            }
+            Runnable task = () -> {
+                try {
+                    ChatService otherNodeService = myNode.getCommunicationHUB().getRMIProxy(otherNode);
+                    otherNodeService.startElectionAgain(otherNodes);
+                } catch (RemoteException e) {
+                    log.error("Error notifying node " + otherNode + ": " + e.getMessage());
+                }
+            };
+            long delay = 9; // Delay in seconds, adjust as needed
+            myNode.getScheduler().schedule(task, delay, TimeUnit.SECONDS);
         }
     }
+
 
     public void setFutureLeader(List<Address> highestPriorityNodes){
         Address leaderNode = myNode.getNeighbours().getLeaderNode();
@@ -94,21 +120,32 @@ public class BullyAlgorithm{
                 .filter(node -> !node.equals(address))
                 .collect(Collectors.toList());
         String message = "Relax, i will take care of this";
+
         for (Address otherNode : otherNodes){
+            Runnable task = () -> {
+                try {
+                    ChatService chatService = myNode.getCommunicationHUB().getRMIProxy(otherNode);
+                    chatService.receiveMessage(message, address.getNodeID());
+                } catch (RemoteException e) {
+                    log.error("Couldn't get responses");
+                }
+            };
+            long delay = 4; // Delay in seconds, adjust as needed
+            myNode.getScheduler().schedule(task, delay, TimeUnit.SECONDS);
+        }
+
+        // Scheduling the setting of a new leader
+        Runnable leaderTask = () -> {
             try {
-                ChatService chatService = myNode.getCommunicationHUB().getRMIProxy(otherNode);
-                chatService.receiveMessage(message, address.getNodeID());
-            }catch (RemoteException e) {
+                ChatService futureLeaderService = myNode.getCommunicationHUB().getRMIProxy(address);
+                futureLeaderService.logInfo("I am Node with highest id. Now i will become leader and repair topology");
+                futureLeaderService.election(address, leaderNode);
+            } catch (RemoteException e) {
                 log.error("Couldn't get responses");
             }
-        }
-        try {
-            ChatService futureLeaderService = myNode.getCommunicationHUB().getRMIProxy(address);
-            futureLeaderService.logInfo("Now i will become leader and repair topology");
-            futureLeaderService.election(address, leaderNode);
-        }catch (RemoteException e) {
-            log.error("Couldn't get responses");
-        }
+        };
+        long delay = 4;
+        myNode.getScheduler().schedule(leaderTask, delay, TimeUnit.SECONDS);
     }
 
 

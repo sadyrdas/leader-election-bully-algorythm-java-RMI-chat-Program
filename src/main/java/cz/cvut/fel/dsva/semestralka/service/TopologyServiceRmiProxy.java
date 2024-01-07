@@ -1,6 +1,5 @@
 package cz.cvut.fel.dsva.semestralka.service;
 
-import com.sun.jdi.request.ClassUnloadRequest;
 import cz.cvut.fel.dsva.semestralka.Node;
 import cz.cvut.fel.dsva.semestralka.base.Address;
 import lombok.Getter;
@@ -10,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.rmi.RemoteException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -57,15 +57,21 @@ public class TopologyServiceRmiProxy {
                 .filter(node -> !node.equals(loggedOut))
                 .filter(node -> !node.equals(address))
                 .collect(Collectors.toList());
+
         for (Address otherNode : otherNodes) {
-            try {
-                ChatService otherNodeService = myNode.getCommunicationHUB().getRMIProxy(otherNode);
-                otherNodeService.notifyAboutNewLeader(address);
-            } catch (RemoteException e) {
-                log.error("Error notifying node " + otherNode + ": " + e.getMessage());
-            }
+            Runnable task = () -> {
+                try {
+                    ChatService otherNodeService = myNode.getCommunicationHUB().getRMIProxy(otherNode);
+                    otherNodeService.notifyAboutNewLeader(address);
+                } catch (RemoteException e) {
+                    log.error("Error notifying node " + otherNode + ": " + e.getMessage());
+                }
+            };
+            long delay = 10; // Delay in seconds, adjust as needed
+            myNode.getScheduler().schedule(task, delay, TimeUnit.SECONDS);
         }
     }
+
 
     public void repairTopologyAfterJoin(Address newNeighbor) {
         List<Address> neighbors = new ArrayList<>(myNode.getNeighbours().getNeighbours());

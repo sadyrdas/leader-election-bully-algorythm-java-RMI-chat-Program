@@ -5,7 +5,9 @@ import cz.cvut.fel.dsva.semestralka.service.ChatServiceImpl;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.json.simple.parser.ParseException;
 
+import java.io.IOException;
 import java.rmi.RemoteException;
 
 @Getter
@@ -28,6 +30,10 @@ public class LogOutCommandHandler implements CommandHandler{
             chatService.logOUT();
         }catch (RemoteException e) {
             log.error("Something is wrong: " + e.getMessage());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } catch (ParseException e) {
+            throw new RuntimeException(e);
         }
     }
 }

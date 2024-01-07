@@ -14,6 +14,7 @@ import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Getter
@@ -50,6 +51,14 @@ public class ChatCLI implements Runnable, Serializable, Remote {
     }
 
     public void stop(){
+        node.getScheduler().shutdown();
+        try {
+            if (!node.getScheduler().awaitTermination(60, TimeUnit.SECONDS)) {
+                node.getScheduler().shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            node.getScheduler().shutdownNow();
+        }
         Thread.currentThread().interrupt();
         Runtime.getRuntime().halt(0);
     }

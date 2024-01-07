@@ -3,7 +3,9 @@ package cz.cvut.fel.dsva.semestralka.service;
 import cz.cvut.fel.dsva.semestralka.base.Address;
 import cz.cvut.fel.dsva.semestralka.base.DSNeighbours;
 import cz.cvut.fel.dsva.semestralka.Node;
+import org.json.simple.parser.ParseException;
 
+import java.io.IOException;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.util.List;
@@ -22,8 +24,8 @@ public interface ChatService extends Remote {
     void printStatus(Node node) throws RemoteException;
     void notifyLeaderAboutSendMessage(long senderId, long receiverId, String message) throws RemoteException;
     void notifyNodeAboutSentMessage(long senderId, long receiverId, String message) throws RemoteException;
-    void logOUT() throws RemoteException;
-    void logOUTForce() throws RemoteException;
+    void logOUT() throws IOException, ParseException;
+    void logOUTForce() throws IOException, ParseException;
     void getTopology(Address address) throws RemoteException;
     void repairTopologyWithNewLeader(List<Address> addresses, Address address) throws RemoteException;
     void receiveMessage(String message,  long receiverId) throws RemoteException;

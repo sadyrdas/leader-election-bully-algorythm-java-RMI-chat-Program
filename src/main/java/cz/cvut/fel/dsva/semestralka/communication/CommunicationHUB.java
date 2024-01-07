@@ -31,6 +31,7 @@ public class CommunicationHUB {
 
 
     public synchronized ChatService getRMIProxy(Address address) throws RemoteException {
+        System.setProperty("java.rmi.server.hostname", node.getTargetNetworkAddress().host);
         if (address.compareTo(myAddress) == 0) return chatService;
         else {
             try {

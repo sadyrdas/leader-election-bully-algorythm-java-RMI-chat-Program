@@ -6,9 +6,12 @@ import cz.cvut.fel.dsva.semestralka.base.DSNeighbours;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.json.simple.parser.ParseException;
 
+import java.io.IOException;
 import java.rmi.RemoteException;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -154,15 +157,18 @@ public class ChatServiceImpl implements ChatService {
     @Override
     public void sendElectionMsg(long senderId) throws RemoteException {
         log.info("I will start election");
-        myNode.getBullyAlgorithm().sendElectionProxy(senderId);
-        log.info("My work is done");
-        myNode.getBullyAlgorithm().startElectionAgain(senderId);
+        Runnable task = () -> {
+            myNode.getBullyAlgorithm().sendElectionProxy(senderId);
+            myNode.getBullyAlgorithm().startElectionAgain(senderId);
+        };
+        long delay = 10; // Delay in seconds, adjust as needed
+        myNode.getScheduler().schedule(task, delay, TimeUnit.SECONDS);
     }
 
 
     @Override
     public void startElectionAgain(List<Address> highestPriorityNodes) throws RemoteException{
-        log.info("Started election again!");
+        log.info("Started election!");
         myNode.getBullyAlgorithm().setFutureLeader(highestPriorityNodes);
     }
 
@@ -223,11 +229,14 @@ public class ChatServiceImpl implements ChatService {
 
 
     @Override
-    public void logOUT() throws RemoteException {
+    public void logOUT() throws IOException, ParseException {
         log.info("Started LogOut");
         if (myNode.getAddress().compareTo(myNode.getNeighbours().getLeaderNode()) == 0){
             System.out.println("You are leader");
             System.out.println("Your absence can be without consequences. I will find new leader.");
+            if (myNode.getAddress().equals(myNode.getTargetNetworkAddress())) {
+                myNode.writeStateToFile(false); // Update the file when logging out
+            }
         }
         myNode.getAddress().setOnline(false);
         myNode.getChatCLI().setReading(false);
@@ -235,14 +244,17 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    public void logOUTForce() throws RemoteException {
+    public void logOUTForce() throws IOException, ParseException {
         if (myNode.getAddress().compareTo(myNode.getNeighbours().getLeaderNode()) == 0){
             System.out.println("You are leader");
             System.out.println("Your absence can be without consequences..");
+            if (myNode.getAddress().equals(myNode.getTargetNetworkAddress())) {
+                myNode.writeStateToFile(false); // Update the file when logging out
+            }
         }
         myNode.getAddress().setOnline(false);
-        log.info("FirstAttempt: {}" , myNode.isFirstAttempt());
         myNode.getChatCLI().setReading(false);
+
     }
 
 

@@ -7,6 +7,7 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.rmi.RemoteException;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Getter
@@ -32,17 +33,22 @@ public class SendMessageServiceRmiProxy {
 
     public void broadCastMessage(long senderId, int receiverId, String message){
         Address destinationAddress = myNode.getNeighbours().getAddressById(receiverId);
-        try {
-            if (destinationAddress != null && destinationAddress.isOnline() && myNode.getBullyAlgorithm().isLeaderAlive()) {
-                ChatService destinationNode = myNode.getCommunicationHUB().getRMIProxy(destinationAddress);
-                destinationNode.receiveMessage(message, senderId);
-                sendResponseToNodeFromLeader(senderId, receiverId, "OK");
-            } else {
+        Runnable messageTask = () -> {
+            try {
+                if (destinationAddress != null && destinationAddress.isOnline() && myNode.getBullyAlgorithm().isLeaderAlive()) {
+                    ChatService destinationNode = myNode.getCommunicationHUB().getRMIProxy(destinationAddress);
+                    destinationNode.receiveMessage(message, senderId);
+                    sendResponseToNodeFromLeader(senderId, receiverId, "OK");
+                } else {
+                    handleOfflineNode(senderId, receiverId, destinationAddress);
+                }
+            } catch (RemoteException e) {
                 handleOfflineNode(senderId, receiverId, destinationAddress);
             }
-        } catch (RemoteException e) {
-            handleOfflineNode(senderId, receiverId, destinationAddress);
-        }
+        };
+
+        long delay = 1; // Delay in seconds
+        myNode.getScheduler().schedule(messageTask, delay, TimeUnit.SECONDS);
     }
 
     private void handleOfflineNode(long senderId, int receiverId, Address destinationAddress) {
