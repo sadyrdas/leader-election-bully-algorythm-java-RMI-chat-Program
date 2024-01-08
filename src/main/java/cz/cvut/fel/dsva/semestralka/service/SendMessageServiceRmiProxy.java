@@ -61,7 +61,9 @@ public class SendMessageServiceRmiProxy {
                 ChatService senderChatService = myNode.getCommunicationHUB().getRMIProxy(sender);
                 senderChatService.logInfo("DestinationNode has logout force.");
             } catch (RemoteException e) {
-                log.error("Error notifying sender " + e.getMessage());
+                log.info("Error notifying node. Node is dead " + sender);
+                log.info("Remove dead node");
+                myNode.getNeighbours().removeNode(sender);
                 sentMessageStatus = false;
             }
             try {
@@ -69,6 +71,9 @@ public class SendMessageServiceRmiProxy {
                 receiverChatService.logInfo("DestinationNode has logout force. Start repair topology");
             } catch (RemoteException e) {
                 log.error("Error notifying sender " + e.getMessage());
+                log.info("Error notifying node. Node is dead " + leaderNode);
+                log.info("Remove dead node");
+                myNode.getNeighbours().removeNode(leaderNode);
                 sentMessageStatus = false;
             }
             myNode.getTopologyServiceRmiProxy().notifyAboutLogout(destinationAddress);
@@ -78,14 +83,15 @@ public class SendMessageServiceRmiProxy {
 
 
 
-
     public void sendResponseToNodeFromLeader(long senderId, long receiverId, String message){
         Address sender = myNode.getNeighbours().getAddressById((int) senderId);
         try {
             ChatService senderChatService = myNode.getCommunicationHUB().getRMIProxy(sender);
             senderChatService.notifyNodeAboutSentMessage( senderId,receiverId, message);
         } catch (RemoteException e) {
-            log.error("Error notifying sender " + e.getMessage());
+            log.info("Error notifying node. Node is dead " + sender);
+            log.info("Remove dead node");
+            myNode.getNeighbours().removeNode(sender);
             sentMessageStatus = false;
         }
     }

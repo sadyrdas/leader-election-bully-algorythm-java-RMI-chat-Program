@@ -87,7 +87,23 @@ public class BullyAlgorithm{
                         ChatService sender = myNode.getCommunicationHUB().getRMIProxy(address);
                         sender.logInfo("My work is done");
                     } catch (RemoteException e) {
-                        log.error("Error notifying node " + otherNode + ": " + e.getMessage());
+                        log.info("Node is dead with id {}", otherNode.nodeID);
+                        myNode.getNeighbours().removeNode(otherNode);
+                        myNode.getNeighbours().addNewNode(address);
+                        ChatService myNodeService = null;
+                        try {
+                            myNodeService = myNode.getCommunicationHUB().getRMIProxy(myNode.getAddress());
+                        } catch (RemoteException ex) {
+                            throw new RuntimeException(ex);
+                        }
+                        try {
+                            myNodeService.electionByLeaderAgain(address, otherNode);
+                            myNode.getNeighbours().removeNode(otherNode);
+                            myNodeService.logInfo("I am new leader");
+                        } catch (RemoteException ex) {
+                            throw new RuntimeException(ex);
+                        }
+                        log.info("I am new leader");
                     }
                 };
                 long delay = 7; // Delay in seconds, adjust as needed
@@ -99,13 +115,26 @@ public class BullyAlgorithm{
 
     public void startElectionAgain(long senderId){
         List<Address> otherNodes = findAllNodesWithHigherID(senderId);
+        Address sender = myNode.getNeighbours().getAddressById((int) senderId);
         for (Address otherNode : otherNodes) {
             Runnable task = () -> {
                 try {
                     ChatService otherNodeService = myNode.getCommunicationHUB().getRMIProxy(otherNode);
                     otherNodeService.startElectionAgain(otherNodes);
                 } catch (RemoteException e) {
-                    log.error("Error notifying node " + otherNode + ": " + e.getMessage());
+                    myNode.getNeighbours().removeNode(otherNode);
+                    ChatService myNodeService = null;
+                    try {
+                        myNodeService = myNode.getCommunicationHUB().getRMIProxy(myNode.getAddress());
+                    } catch (RemoteException ex) {
+                        throw new RuntimeException(ex);
+                    }
+                    try {
+                        myNodeService.electionByLeaderAgain(myNode.getAddress(), otherNode);
+                        myNode.getNeighbours().removeNode(otherNode);
+                    } catch (RemoteException ex) {
+                        throw new RuntimeException(ex);
+                    }
                 }
             };
             long delay = 9; // Delay in seconds, adjust as needed

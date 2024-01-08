@@ -95,7 +95,6 @@ public class ChatServiceImpl implements ChatService {
 
 
 
-
     @Override
     public void help() throws RemoteException {
         log.info("'help' - Available commands ");
@@ -235,10 +234,10 @@ public class ChatServiceImpl implements ChatService {
         if (parts.length >= 2) {
             int nodeId = Integer.parseInt(parts[1]);
             Address address = myNode.getNeighbours().getAddressById(nodeId);
-            myNode.getTopologyServiceRmiProxy().repairTopologyAfterLogOut(nodeId);
-            myNode.getTopologyServiceRmiProxy().notifyAboutLogout(address);
             log.info("Node {} has logged out.", nodeId);
             log.info("Updating topology and send updated topology to otherNodes");
+            myNode.getTopologyServiceRmiProxy().repairTopologyAfterLogOut(nodeId);
+            myNode.getTopologyServiceRmiProxy().notifyAboutLogout(address);
         }
     }
 
@@ -253,6 +252,9 @@ public class ChatServiceImpl implements ChatService {
             if (myNode.getAddress().equals(myNode.getTargetNetworkAddress())) {
                 myNode.writeStateToFile(false); // Update the file when logging out
             }
+            myNode.getAddress().setOnline(false);
+            myNode.getChatCLI().setReading(false);
+            myNode.getTopologyServiceRmiProxy().broadcastLogout();
         }
         myNode.getAddress().setOnline(false);
         myNode.getChatCLI().setReading(false);
@@ -270,7 +272,6 @@ public class ChatServiceImpl implements ChatService {
         }
         myNode.getAddress().setOnline(false);
         myNode.getChatCLI().setReading(false);
-
     }
 
 

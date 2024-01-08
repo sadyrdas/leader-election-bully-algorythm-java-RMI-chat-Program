@@ -11,7 +11,7 @@ import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
-
+import java.rmi.server.UnicastRemoteObject;
 
 
 @Slf4j
@@ -27,6 +27,16 @@ public class CommunicationHUB {
         this.myAddress = node.getAddress();
         this.chatService = node.getChatService();
         this.node = node;
+        Runtime.getRuntime().addShutdownHook(new Thread(this::stopChatService));
+    }
+
+    public void stopChatService() {
+        try {
+            UnicastRemoteObject.unexportObject(chatService, true);
+            log.info("Chat service stopped successfully.");
+        } catch (RemoteException e) {
+            log.error("Error stopping chat service: " + e.getMessage());
+        }
     }
 
 
@@ -44,20 +54,7 @@ public class CommunicationHUB {
         }
     }
 
-    public synchronized void setRmiProxy(Address newLeaderAddress) {
-        try {
-            if (newLeaderAddress.compareTo(myAddress) == 0) {
-                // If the new leader is the current node itself
-                currentLeaderRmiProxy = chatService;
-            } else {
-                Registry registry = LocateRegistry.getRegistry(newLeaderAddress.host, newLeaderAddress.port);
-                currentLeaderRmiProxy = (ChatService) registry.lookup(Node.nameRMI);
-            }
-        } catch (RemoteException | NotBoundException e) {
-            log.error("Failed to set RMI proxy: " + e.getMessage());
-            // Handle the exception as needed
-        }
-    }
+
 }
 
 

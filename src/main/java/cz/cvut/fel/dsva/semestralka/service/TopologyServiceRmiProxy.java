@@ -32,7 +32,9 @@ public class TopologyServiceRmiProxy {
                 ChatService otherNodeService = myNode.getCommunicationHUB().getRMIProxy(otherNode);
                 otherNodeService.notifyAboutJoin(address);
             } catch (RemoteException e) {
-                log.error("Error notifying node " + otherNode + ": " + e.getMessage());
+                log.info("Error notifying node. Node is dead " + otherNode);
+                log.info("Remove dead node");
+                myNode.getNeighbours().removeNode(otherNode);
             }
         }
     }
@@ -47,7 +49,9 @@ public class TopologyServiceRmiProxy {
                 ChatService otherNodeService = myNode.getCommunicationHUB().getRMIProxy(otherNode);
                 otherNodeService.notifyAboutLogOut(address);
             } catch (RemoteException e) {
-                log.error("Error notifying node " + otherNode + ": " + e.getMessage());
+                log.info("Error notifying node. Node is dead " + otherNode);
+                log.info("Remove dead node");
+                myNode.getNeighbours().removeNode(otherNode);
             }
         }
     }
@@ -64,7 +68,8 @@ public class TopologyServiceRmiProxy {
                     ChatService otherNodeService = myNode.getCommunicationHUB().getRMIProxy(otherNode);
                     otherNodeService.notifyAboutNewLeader(address);
                 } catch (RemoteException e) {
-                    log.error("Error notifying node " + otherNode + ": " + e.getMessage());
+                    log.info("Error notifying node. Node is dead " + otherNode);
+                    myNode.getNeighbours().removeNode(otherNode);
                 }
             };
             long delay = 10; // Delay in seconds, adjust as needed
@@ -81,7 +86,9 @@ public class TopologyServiceRmiProxy {
                 ChatService otherNodeService = myNode.getCommunicationHUB().getRMIProxy(otherNode);
                 otherNodeService.repairTopologyAfterJoin(newNeighbor);
             } catch (RemoteException e) {
-                log.error("Error notifying node " + otherNode + ": " + e.getMessage());
+                log.info("Error notifying node. Node is dead " + otherNode);
+                log.info("Remove dead node");
+                myNode.getNeighbours().removeNode(otherNode);
             }
         }
     }
@@ -94,7 +101,9 @@ public class TopologyServiceRmiProxy {
                 ChatService otherNodeService = myNode.getCommunicationHUB().getRMIProxy(otherNode);
                 otherNodeService.repairTopologyAfterLogOut(nodeId);
             } catch (RemoteException e) {
-                return;
+                log.info("Error notifying node. Node is dead " + otherNode);
+                log.info("Remove dead node");
+                myNode.getNeighbours().removeNode(otherNode);
             }
         }
     }
@@ -105,7 +114,9 @@ public class TopologyServiceRmiProxy {
             ChatService otherNodeService = myNode.getCommunicationHUB().getRMIProxy(leader);
             otherNodeService.notifyLeaderAboutJoin(address);
         } catch (RemoteException e) {
-            log.error("Error notifying node " + leader + ": " + e.getMessage());
+            log.info("Error notifying node. Node is dead " + leader);
+            log.info("Remove dead node");
+            myNode.getNeighbours().removeNode(leader);
         }
     }
 
@@ -118,7 +129,9 @@ public class TopologyServiceRmiProxy {
                 ChatService otherNodeService = myNode.getCommunicationHUB().getRMIProxy(otherNode);
                 otherNodeService.repairTopologyWithNewLeader(neighbors, address);
             } catch (RemoteException e) {
-                log.error("Error notifying node " + otherNode + ": " + e.getMessage());
+                log.info("Error notifying node. Node is dead " + otherNode);
+                log.info("Remove dead node");
+                myNode.getNeighbours().removeNode(otherNode);
             }
         }
     }
